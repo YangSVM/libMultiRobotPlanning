@@ -616,7 +616,7 @@ int main(int argc, char* argv[]) {
   int dimy = dim[1].as<int>();
 
   for (const auto& node : config["map"]["obstacles"]) {
-    obstacles.insert(Location(node[0].as<int>(), node[1].as<int>()));
+    obstacles.insert(Location(int(node[0].as<double>()), int(node[1].as<double>())));
   }
 
   for (const auto& node : config["agents"]) {
