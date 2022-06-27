@@ -1,18 +1,84 @@
 #!/usr/bin/env python3
 import yaml
-import matplotlib
 # matplotlib.use("Agg")
 from matplotlib.patches import Circle, Rectangle, Arrow
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
-import matplotlib.animation as manimation
 import argparse
-import math
 
 Colors = ['orange']#, 'blue', 'green']
 
+class  Scene:
+  def __init__(self, map, schedule, scale=1) :
+    self.map = map
+    self.schedule = schedule
+
+    aspect = map["map"]["dimensions"][0] / map["map"]["dimensions"][1]
+
+    self.fig = plt.figure(frameon=False, figsize=(4 * aspect, 4))
+    self.ax = self.fig.add_subplot(111, aspect='equal')
+    self.fig.subplots_adjust(left=0,right=1,bottom=0,top=1, wspace=None, hspace=None)
+    # self.ax.set_frame_on(False)
+
+    self.patches = []
+    self.artists = []
+    self.agents = dict()
+    self.start_text = dict()
+    self.goal_text = dict()
+    # create boundary patch
+    xmin = -0.5
+    ymin = -0.5
+    xmax = int(map["map"]["dimensions"][0]/scale) - 0.5
+    ymax = int(map["map"]["dimensions"][1]/scale) - 0.5
+
+    # self.ax.relim()
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    # self.ax.set_xticks([])
+    # self.ax.set_yticks([])
+    # plt.axis('off')
+    # self.ax.axis('tight')
+    # self.ax.axis('off')
+
+    self.patches.append(Rectangle((xmin, ymin), xmax - xmin, ymax - ymin, facecolor='none', edgecolor='red'))
+    for o in map["map"]["obstacles"]:
+      x, y = int(o[0]/scale), int(o[1]/scale)
+      self.patches.append(Rectangle((x - 0.5, y - 0.5), 1, 1, facecolor='red', edgecolor='red'))
+
+    # create agents:
+    self.T = 0
+    # draw goals first
+    for d, i in zip(map["agents"], range(0, len(map["agents"]))):
+      if "goal" in d:
+        goals = [d["goal"]]
+      if "potentialGoals" in d:
+        goals = [goal for goal in d["potentialGoals"]]
+      for goal in goals:
+        self.patches.append(Rectangle((int(goal[0]/scale) - 0.5,int(goal[1]/scale) - 0.5), 1, 1, facecolor=Colors[i%len(Colors)], edgecolor='black', alpha=0.5))
+
+    for d, i in zip(map["agents"], range(0, len(map["agents"]))):
+      name = d["name"]
+      self.agents[name] = Circle((int(d["start"][0]/scale), int(d["start"][1]/scale)), 0.5, facecolor=Colors[i%len(Colors)], edgecolor='black')
+      self.agents[name].original_face_color = Colors[i%len(Colors)]
+      self.patches.append(self.agents[name])
+      self.T = 1
+
+      self.start_text[name] = self.ax.text(int(d["start"][0]/scale), int(d["start"][1]/scale), name.replace('agent', ''))
+      self.start_text[name].set_horizontalalignment('center')
+      self.start_text[name].set_verticalalignment('center')
+      self.artists.append(self.start_text[name])
+
+      self.goal_text[name] = self.ax.text(int(d["goal"][0]/scale), int(d["goal"][1]/scale), name.replace('agent', ''))
+      self.goal_text[name].set_horizontalalignment('center')
+      self.goal_text[name].set_verticalalignment('center')
+      self.artists.append(self.goal_text[name])
+
+    for patch in self.patches:
+        self.ax.add_patch(patch)
+    plt.show()
+    print('hold on')
 
 class Animation:
   def __init__(self, map, schedule):
@@ -33,8 +99,8 @@ class Animation:
     # create boundary patch
     xmin = -0.5
     ymin = -0.5
-    xmax = map["map"]["dimensions"][0] - 0.5
-    ymax = map["map"]["dimensions"][1] - 0.5
+    xmax = (map["map"]["dimensions"][0]) - 0.5
+    ymax = (map["map"]["dimensions"][1]) - 0.5
 
     # self.ax.relim()
     plt.xlim(xmin, xmax)
@@ -71,8 +137,6 @@ class Animation:
       self.agent_names[name].set_horizontalalignment('center')
       self.agent_names[name].set_verticalalignment('center')
       self.artists.append(self.agent_names[name])
-
-
 
     # self.ax.set_axis_off()
     # self.fig.axes[0].set_visible(False)
@@ -152,22 +216,40 @@ class Animation:
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("map", help="input file containing map")
-  parser.add_argument("schedule", help="schedule for agents")
+  parser.add_argument("--map", '-m', help="input file containing map")
+  parser.add_argument("--schedule", '-s',help="schedule for agents")
   parser.add_argument('--video', dest='video', default=None, help="output video file (or leave empty to show on screen)")
   parser.add_argument("--speed", type=int, default=1, help="speedup-factor")
+  parser.add_argument("--scale", type=float, default=1, help="scale_size")
+
   args = parser.parse_args()
 
 
   with open(args.map) as map_file:
     map = yaml.safe_load(map_file)
 
-  with open(args.schedule) as states_file:
-    schedule = yaml.safe_load(states_file)
+  # arg.schedule not input. visualize the problem instead.
+  if not args.schedule:
+    gs = args.scale  # grid size
+    map_sizex = int(map['map']['dimensions'][0]//gs) + 1
+    map_sizey = int(map['map']['dimensions'][1]//gs) + 1
+    scene = np.ones([map_sizex, map_sizey, 3])
+    obs = map['map']['obstacles']
+    for ob in obs: 
+      x = int(ob[0] //gs)
+      y = int(ob[1] //gs)      
+      scene[x, y, :] = 255
+    agents = map['agents']
+    # for agent in agents:
+    animation = Scene(map, 1,gs )
 
-  animation = Animation(map, schedule)
-
-  if args.video:
-    animation.save(args.video, args.speed)
   else:
-    animation.show()
+    with open(args.schedule) as states_file:
+      schedule = yaml.safe_load(states_file)
+
+    animation = Animation(map, schedule)
+
+    if args.video:
+      animation.save(args.video, args.speed)
+    else:
+      animation.show()

@@ -11,21 +11,23 @@
 
 
 # It is the makefile to evaluate examples in benchmark
-weight = 1dot3
+weight = 1.3
+gridSize = 3
 mapName =  map50by50
 agentNum = agents20
 
 # mkdir if it do not exist.
-result_dir := result/$(mapName)/$(agentNum)/w$(weight)
+result_dir := result/$(mapName)/$(agentNum)/gridsize$(gridSize)/w$(weight)
 $(shell if [ ! -e $(result_dir) ];then mkdir -p $(result_dir); fi)
 
 IN = $(wildcard benchmark/$(mapName)/$(agentNum)/obstacle/*.yaml)
-OUT = $(subst benchmark/$(mapName)/$(agentNum)/obstacle/,result/$(mapName)/$(agentNum)/w$(weight)/,$(IN))
+OUT = $(subst benchmark/$(mapName)/$(agentNum)/obstacle/,result/$(mapName)/$(agentNum)/gridsize$(gridSize)/w$(weight)/,$(IN))
 
-result/$(mapName)/$(agentNum)/w$(weight)/%.yaml: benchmark/$(mapName)/$(agentNum)/obstacle/%.yaml	
-	./build/ecbs -i ./$^ -o $@ -w 1.3
+result/$(mapName)/$(agentNum)/gridsize$(gridSize)/w$(weight)/%.yaml: benchmark/$(mapName)/$(agentNum)/obstacle/%.yaml	
+	./build/ecbs -i ./$^ -o $@ -w $(weight) -s $(gridSize)
 
 default:  $(OUT)
 
 # delete the empty files
-$(shell find $(result_dir) -type f -empty -print -delete)
+clean_empty: 
+	$(shell find $(result_dir) -type f -empty -print -delete)

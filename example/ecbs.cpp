@@ -531,6 +531,37 @@ class Environment {
   bool m_disappearAtGoal;
 };
 
+void preprocess(YAML::Node &config, float gridSize,  std::unordered_set<Location> &obstacles, int maxx){
+  // 前处理，由于mesh可能导致障碍物和
+  // 智能体起点或者终点在同一格里
+
+  // 处理方法：直接将障碍物删除
+  // 先将所有的起点终点放在二位矩阵内
+  int poseStartGoal[maxx][maxx];
+  // 先全部初始化为0
+  for (int i=0;i<maxx; i++){
+      for (int j=0;j<maxx; j++){
+        poseStartGoal[i][j] = 0;
+      }
+  }
+
+  for (const auto& node : config["agents"]) {
+    const auto& start = node["start"];
+    const auto& goal = node["goal"];
+    poseStartGoal[int(start[0].as<int>()/gridSize)][int(start[1].as<int>()/gridSize)] = 1;
+    poseStartGoal[int(goal[0].as<int>()/gridSize)][int(goal[1].as<int>()/gridSize)] = 2;
+  }
+
+    for (const auto& node : config["map"]["obstacles"]) {
+      // 找是否和现有的start pose 重合
+      int obx = int(node[0].as<double>()/gridSize);
+      int oby = int(node[1].as<double>()/gridSize);
+      if (poseStartGoal[obx][oby] == 0){
+        obstacles.insert(Location(obx, oby));
+      }
+  }
+}
+
 int main(int argc, char* argv[]) {
   namespace po = boost::program_options;
   // Declare the supported options.
@@ -539,6 +570,8 @@ int main(int argc, char* argv[]) {
   std::string outputFile;
   bool disappearAtGoal;
   float w;
+  float gridSize;
+  // key, value, help string.
   desc.add_options()("help", "produce help message")(
       "input,i", po::value<std::string>(&inputFile)->required(),
       "input file (YAML)")("output,o",
@@ -546,7 +579,8 @@ int main(int argc, char* argv[]) {
                            "output file (YAML)")(
       "suboptimality,w", po::value<float>(&w)->default_value(1.0),
       "suboptimality bound")(
-      "disappear-at-goal", po::bool_switch(&disappearAtGoal), "make agents to disappear at goal rather than staying there");
+      "disappear-at-goal", po::bool_switch(&disappearAtGoal), "make agents to disappear at goal rather than staying there")
+      ("scale,s", po::value<float>(&gridSize)->default_value(1.0), "value for mesh grid size");
 
   try {
     po::variables_map vm;
@@ -569,21 +603,22 @@ int main(int argc, char* argv[]) {
   std::vector<Location> goals;
   std::vector<State> startStates;
 
+  // Scale method: all input 
   const auto& dim = config["map"]["dimensions"];
-  int dimx = dim[0].as<int>();
-  int dimy = dim[1].as<int>();
+  int dimx = int(dim[0].as<int>()/gridSize) + 1;  // 会有跑出地图的情况
+  int dimy = int(dim[1].as<int>()/gridSize) + 1;
 
-  for (const auto& node : config["map"]["obstacles"]) {
-    std::cout<< ""<< int(node[0].as<double>())<<std::endl;
-    obstacles.insert(Location(int(node[0].as<double>()), int(node[1].as<double>())));
-  }
-
+  // for (const auto& node : config["map"]["obstacles"]) {
+  //   // std::cout<< ""<< int(node[0].as<double>()/gridSize)<<std::endl;
+  //   obstacles.insert(Location(int(node[0].as<double>()/gridSize), int(node[1].as<double>()/gridSize)));
+  // }
+  preprocess(config, gridSize, obstacles, dimx);
   for (const auto& node : config["agents"]) {
     const auto& start = node["start"];
     const auto& goal = node["goal"];
-    startStates.emplace_back(State(0, start[0].as<int>(), start[1].as<int>()));
+    startStates.emplace_back(State(0, int(start[0].as<int>()/gridSize), int(start[1].as<int>()/gridSize)));
     // std::cout << "s: " << startStates.back() << std::endl;
-    goals.emplace_back(Location(goal[0].as<int>(), goal[1].as<int>()));
+    goals.emplace_back(Location(int(goal[0].as<int>()/gridSize), int(goal[1].as<int>()/gridSize)));
   }
 
   // sanity check: no identical start states
@@ -633,8 +668,8 @@ int main(int argc, char* argv[]) {
 
       out << "  agent" << a << ":" << std::endl;
       for (const auto& state : solution[a].states) {
-        out << "    - x: " << state.first.x << std::endl
-            << "      y: " << state.first.y << std::endl
+        out << "    - x: " << state.first.x*gridSize << std::endl
+            << "      y: " << state.first.y*gridSize << std::endl
             << "      t: " << state.second << std::endl;
       }
     }

@@ -1,3 +1,4 @@
 build/
+debug/
 __pycache__/
 *.kdev4*

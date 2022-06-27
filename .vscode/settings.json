@@ -2,15 +2,17 @@
     "cmake.debugConfig": {
     "args": [
         "-i",
-        "../benchmark/map_300by300_obst100_agents100_ex0.yaml",
+        // "../benchmark/map_300by300_obst100_agents100_ex0.yaml",
         // "../benchmark/8x8_obst12/map_8by8_obst12_agents1_ex0.yaml",
 
-        // "../benchmark/map50by50/agents20/obstacle/map_50by50_obst25_agents20_ex13.yaml",
+        "../benchmark/map50by50/agents20/obstacle/map_50by50_obst25_agents20_ex16.yaml",
 
         "-o",
         "output.yaml",
         "-w",
-        "1.3"
+        "1.3",
+        "-s",
+        "3",
     ]
     },
     "files.associations": {

@@ -126,6 +126,9 @@ class ECBS {
         LowLevelEnvironment llenv(m_env, i, start.constraints[i],
                                   start.solution);
         LowLevelSearch_t lowLevel(llenv, m_w);
+        if (i==12){
+          printf("break");
+          }
         bool success = lowLevel.search(initialStates[i], start.solution[i]);
         if (!success) {
           return false;
